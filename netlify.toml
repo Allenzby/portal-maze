@@ -1,0 +1,27 @@
+# Netlify 部署配置：连仓库自动部署时读取此文件
+# （若直接把 dist/ 文件夹拖进 Netlify 网页上传，则不走构建，此文件不参与）
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 5 要求 Node 18+，固定 20 避免默认版本变动
+  NODE_VERSION = "20"
+
+# 构建产物文件名带内容哈希，可长期缓存，减少带宽消耗
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# 皮肤图与 favicon 未做内容哈希：让浏览器回源校验，更新即生效
+[[headers]]
+  for = "/skins/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/favicon.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
