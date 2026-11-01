@@ -176,6 +176,50 @@ export class LevelSelectScene extends Phaser.Scene {
     var logScene = this
     var lw = Math.min(460, w - 30)
     var logContent = this.add.container(0, 0)
+    // 中文按字符换行（Phaser 自带换行按空格断句，会把「· 」和长中文句拆成两行）
+    var probeText = logScene.add.text(0, 0, '', { fontSize: '13px', fontFamily: 'Arial' }).setVisible(false)
+    var LOG_CLOSE_PUNCT = '）】」』》〉，。、！？：；%”’…'
+    var LOG_OPEN_PUNCT = '（【「『《〈“‘'
+    var wrapCJK = function (str, maxW) {
+      var out = []
+      var line = ''
+      for (var ci = 0; ci < str.length; ci++) {
+        var ch = str.charAt(ci)
+        if (ch === '\n') { out.push(line); line = ''; continue }
+        probeText.setText(line + ch)
+        if (probeText.width <= maxW || !line) { line += ch; continue }
+        // 行首禁则：收尾标点挤在本行末尾，避免「）」单独成行
+        if (LOG_CLOSE_PUNCT.indexOf(ch) >= 0) { line += ch; continue }
+        // 行尾禁则：开引号移到下一行
+        var carry = ''
+        var lastCh = line.charAt(line.length - 1)
+        if (LOG_OPEN_PUNCT.indexOf(lastCh) >= 0) { carry = lastCh; line = line.slice(0, -1) }
+        out.push(line)
+        line = carry + ch
+      }
+      if (line) out.push(line)
+
+      // 末行只剩一两个字时（如「片）」），从上一行挪几个字过来，读起来更整齐
+      if (out.length > 1) {
+        var lastLine = out[out.length - 1]
+        var prevLine = out[out.length - 2]
+        while (prevLine.length > 6 && lastLine.length < 6) {
+          var moveCh = prevLine.charAt(prevLine.length - 1)
+          if (LOG_CLOSE_PUNCT.indexOf(moveCh) >= 0) break
+          prevLine = prevLine.slice(0, -1)
+          lastLine = moveCh + lastLine
+        }
+        // 上一行末尾不能是开引号/开括号
+        while (prevLine.length > 2 && LOG_OPEN_PUNCT.indexOf(prevLine.charAt(prevLine.length - 1)) >= 0) {
+          lastLine = prevLine.charAt(prevLine.length - 1) + lastLine
+          prevLine = prevLine.slice(0, -1)
+        }
+        out[out.length - 2] = prevLine
+        out[out.length - 1] = lastLine
+      }
+      return out.join('\n')
+    }
+
     var cy = 0
     CHANGELOG.forEach(function (entry) {
       var verT = logScene.add.text(0, cy, 'v' + entry.v, {
@@ -197,15 +241,19 @@ export class LevelSelectScene extends Phaser.Scene {
       }
       cy += 24
       entry.items.forEach(function (it) {
-        var itemT = logScene.add.text(10, cy, '· ' + it, {
+        // 圆点与正文分开：避免中文长句在「· 」的空格处断行，导致圆点单独占一行
+        logContent.add(logScene.add.text(10, cy + 1, '·', {
           fontSize: '13px', fill: '#cbd5e1', fontFamily: 'Arial',
-          wordWrap: { width: lw - 54 },
+        }))
+        var itemT = logScene.add.text(24, cy, wrapCJK(it, lw - 80), {
+          fontSize: '13px', fill: '#cbd5e1', fontFamily: 'Arial',
         })
         logContent.add(itemT)
         cy += itemT.height + 6
       })
       cy += 10
     })
+    probeText.destroy()
     var contentH = cy - 6
 
     // 面板尺寸随内容自适应（受屏幕高度限制，超出则滚动）
