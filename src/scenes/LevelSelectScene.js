@@ -739,14 +739,22 @@ export class LevelSelectScene extends Phaser.Scene {
       applyScroll()
     })
 
-    // 拖拽滚动条滑块（touch：右缘条带直接拖动，触屏没滚轮）
+    // 拖拽滚动：卡片区域任意位置滑动，或拖右缘条带（触屏没有滚轮）
     var dragging = false
     var dragOffset = 0
     var edgeDrag = false
     var edgeLastY = 0
+    var contentDrag = false
+    var contentMoved = false
+    var contentStartY = 0
+    var contentStartScroll = 0
+    var dragThreshold = 8
+    this._dragMoved = false
     sbThumb.setInteractive(new Phaser.Geom.Rectangle(sbX - 8, viewTop, 16, viewH), Phaser.Geom.Rectangle.Contains)
 
     this.input.on('pointerdown', function (pointer) {
+      // 每次按下先重置，卡片在 pointerup 时据此区分「点击」和「滑动」
+      this._dragMoved = false
       if (maxScroll <= 0) return
       if (aboutContainer.visible || skinContainer.visible || logContainer.visible) return
       // 右缘条带：手指拖动滚动（卡片右缘在 x ≤ w-40，不会误触）
@@ -754,6 +762,13 @@ export class LevelSelectScene extends Phaser.Scene {
         edgeDrag = true
         edgeLastY = pointer.y
         return
+      }
+      // 卡片区域：先记起点，超过阈值才算拖动（否则视为点击卡片）
+      if (pointer.x < w - 28 && pointer.y >= viewTop && pointer.y <= viewBottom) {
+        contentDrag = true
+        contentMoved = false
+        contentStartY = pointer.y
+        contentStartScroll = scrollY
       }
       var lx = pointer.x
       var ly = pointer.y
@@ -767,12 +782,13 @@ export class LevelSelectScene extends Phaser.Scene {
         dragOffset = ly - thumbY
       }
       dragging = true
-    })
+    }, this)
 
     this.input.on('pointermove', function (pointer) {
       if (aboutContainer.visible || skinContainer.visible || logContainer.visible) {
         edgeDrag = false
         dragging = false
+        contentDrag = false
         return
       }
       if (edgeDrag) {
@@ -781,14 +797,28 @@ export class LevelSelectScene extends Phaser.Scene {
         applyScroll()
         return
       }
+      // 卡片区域拖动：内容跟手，滑动距离超过阈值才生效
+      if (contentDrag) {
+        var d = pointer.y - contentStartY
+        if (!contentMoved && Math.abs(d) > dragThreshold) contentMoved = true
+        if (contentMoved) {
+          this._dragMoved = true
+          scrollY = contentStartScroll - d
+          applyScroll()
+          return
+        }
+      }
       if (!dragging || maxScroll <= 0) return
       scrollY = ((pointer.y - viewTop - dragOffset) / (viewH - thumbH)) * maxScroll
       applyScroll()
-    })
+    }, this)
 
     this.input.on('pointerup', function () {
       dragging = false
       edgeDrag = false
+      contentDrag = false
+      contentMoved = false
+      // _dragMoved 保留到下次 pointerdown，供卡片 pointerup 判断是否滑动过
     })
 
     // 底部版权（卡片滚动层之上、弹窗之下）
@@ -940,7 +970,8 @@ export class LevelSelectScene extends Phaser.Scene {
       card.strokeRoundedRect(cardX, cardY, cardW, cardH, 12)
     })
 
-    hitArea.on('pointerdown', function () {
+    hitArea.on('pointerup', function () {
+      if (this._dragMoved) return
       this.cameras.main.fadeOut(500, 0, 0, 0)
       this.cameras.main.once('camerafadeoutcomplete', function () {
         this.scene.start('GameScene', { map: lv.map, levelId: lv.id })
@@ -1018,7 +1049,8 @@ export class LevelSelectScene extends Phaser.Scene {
 
     hitArea.on('pointerover', function () { drawCard(true) })
     hitArea.on('pointerout', function () { drawCard(false) })
-    hitArea.on('pointerdown', function () {
+    hitArea.on('pointerup', function () {
+      if (self._dragMoved) return
       self.startRandomLevel()
     })
   }
