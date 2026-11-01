@@ -4,7 +4,7 @@
 >
 > A browser maze puzzle game built with Phaser 3 + Vite. Teleport through portals, beat the minimum step count.
 
-当前版本 **v1.7.0** · 支持电脑键盘与手机触屏游玩 · 🌐 [线上游玩 portal-maze.pages.dev](https://portal-maze.pages.dev/)
+当前版本 **v1.7.1** · 支持电脑键盘与手机触屏游玩 · 🌐 [线上游玩 portal-maze.pages.dev](https://portal-maze.pages.dev/)
 
 ## 特性 Features
 

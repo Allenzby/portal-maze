@@ -688,14 +688,21 @@ export class LevelSelectScene extends Phaser.Scene {
     var container = this.add.container(0, 0)
     cardObjs.forEach(function (obj) { container.add(obj) })
 
-    // 滚动参数
-    var cardRows = Math.ceil(levels.length / perRow)
+    // 滚动参数（行列数要把随机关卡也算进去，否则手机上滚不到它）
+    var totalCards = levels.length + 1
+    var cardRows = Math.ceil(totalCards / perRow)
     var contentH = cardRows * cardH + (cardRows - 1) * gapY
     var viewTop = startY
     var viewBottom = h - 16
     var viewH = viewBottom - viewTop
-    var maxScroll = Math.max(0, contentH - viewH + 10)
+    var maxScroll = Math.max(0, contentH - viewH)
     var scrollY = 0
+
+    // 裁剪卡片区域：避免滚动时压到顶部标题和底部版权行
+    var cardMask = this.make.graphics({})
+    cardMask.fillStyle(0xffffff)
+    cardMask.fillRect(0, viewTop, w, viewH)
+    container.setMask(cardMask.createGeometryMask())
 
     // 滚动条（右侧）
     var sbX = w - 14
